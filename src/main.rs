@@ -1,50 +1,17 @@
 pub mod controls;
+pub mod models;
 pub mod ui;
 
 use anyhow::Result;
 use controls::run_app;
-use core::fmt;
-use std::{io, slice::Iter};
+use models::{app_state::AppState, menu_items::MenuItems};
+use std::io;
 
 use crossterm::{
     style::Stylize,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use tui::{backend::CrosstermBackend, Terminal};
-
-#[derive(PartialEq)]
-pub enum MenuItems {
-    Issues,
-    PullRequests,
-}
-
-impl MenuItems {
-    pub fn iterator() -> Iter<'static, MenuItems> {
-        static MENU_ITEMS: [MenuItems; 2] = [MenuItems::Issues, MenuItems::PullRequests];
-        MENU_ITEMS.iter()
-    }
-}
-
-impl fmt::Display for MenuItems {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Issues => write!(f, "[I]ssues"),
-            Self::PullRequests => write!(f, "[P]ull requests"),
-        }
-    }
-}
-
-pub struct AppState {
-    current_menu: MenuItems,
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self {
-            current_menu: MenuItems::Issues,
-        }
-    }
-}
 
 fn main() -> Result<()> {
     let mut terminal = init_terminal()?;
