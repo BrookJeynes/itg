@@ -5,5 +5,6 @@ pub mod input_mode;
 pub mod issue;
 pub mod menu_items;
 pub mod repository;
+pub mod errors;
 pub mod screen;
 pub mod stateful_list;

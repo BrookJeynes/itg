@@ -106,6 +106,23 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app_state: &mut AppState) {
         f.render_widget(Clear, area); //this clears out the background
         f.render_widget(render_search_box(app_state.search_string.as_str()), area)
     }
+
+    if app_state.screen == Screen::Error {
+        let area = render_centered_rect(70, 15, size);
+        f.render_widget(Clear, area); //this clears out the background
+        f.render_widget(render_error_box(app_state.error_message.as_str()), area)
+    }
+}
+
+fn render_error_box<'a>(error_text: &'a str) -> Paragraph<'a> {
+    Paragraph::new(error_text)
+        .alignment(Alignment::Left)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .title("Error - Press Enter to continue"),
+        )
 }
 
 fn render_search_box<'a>(search_text: &'a str) -> Paragraph<'a> {

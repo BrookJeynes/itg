@@ -7,7 +7,8 @@ use tui::{backend::Backend, Terminal};
 use crate::{
     api_requests::fetch_issues_repo,
     models::{
-        input_mode::InputMode, repository::Repository, screen::Screen, stateful_list::StatefulList,
+        errors::Errors, input_mode::InputMode, repository::Repository, screen::Screen,
+        stateful_list::StatefulList,
     },
     reset_terminal,
     ui::ui,
@@ -36,10 +37,12 @@ pub async fn run_app<B: Backend>(
                         KeyCode::Up | KeyCode::Char('k') => match app_state.screen {
                             Screen::Issues => app_state.issues.previous(),
                             Screen::Repositories => app_state.repositories.previous(),
+                            Screen::Error => {}
                         },
                         KeyCode::Down | KeyCode::Char('j') => match app_state.screen {
                             Screen::Issues => app_state.issues.next(),
                             Screen::Repositories => app_state.repositories.next(),
+                            Screen::Error => {}
                         },
                         KeyCode::Enter => match app_state.screen {
                             Screen::Issues => {
@@ -73,19 +76,26 @@ pub async fn run_app<B: Backend>(
                                         // Fetch issues for repo and add to cache
                                         None => {
                                             // This blocks input
-                                            let issues = fetch_issues_repo(
+                                            match fetch_issues_repo(
                                                 &app_state.config,
                                                 repo.full_name.as_str(),
                                             )
-                                            .await?;
-
-                                            app_state.issues =
-                                                StatefulList::with_items(issues.clone());
-                                            app_state.cache_issues(repo.full_name, issues);
+                                            .await
+                                            {
+                                                Ok(issues) => {
+                                                    app_state.issues =
+                                                        StatefulList::with_items(issues.clone());
+                                                    app_state.cache_issues(repo.full_name, issues);
+                                                }
+                                                Err(_) => app_state.show_error(
+                                                    Errors::FetchRequestError.to_string(),
+                                                ),
+                                            }
                                         }
                                     };
                                 }
                             }
+                            Screen::Error => app_state.close_error(),
                         },
 
                         // Search repo
@@ -100,9 +110,6 @@ pub async fn run_app<B: Backend>(
                 InputMode::Editing => match key.code {
                     KeyCode::Enter => {
                         let search = app_state.search_string.trim();
-
-                        let issues = fetch_issues_repo(&app_state.config, search).await?;
-
                         let (_, repo) = app_state
                             .search_string
                             .split("/")
@@ -114,13 +121,32 @@ pub async fn run_app<B: Backend>(
                             name: String::from(repo),
                         };
 
-                        app_state.issues = StatefulList::with_items(issues.clone());
-                        app_state.selected_repo = Some(repo.clone());
-                        app_state.repositories.items.push(repo.clone());
-                        app_state.cache_issues(repo.full_name, issues);
+                        // Check cache for issues
+                        match app_state.issue_cache.get(&repo.full_name) {
+                            Some(issues) => {
+                                app_state.issues = StatefulList::with_items(issues.clone());
+                                app_state.search_string = String::new();
+                                app_state.hide_search();
+                            }
+                            // Fetch issues for repo and add to cache
+                            None => {
+                                // This blocks input
+                                match fetch_issues_repo(&app_state.config, search).await {
+                                    Ok(issues) => {
+                                        app_state.issues = StatefulList::with_items(issues.clone());
+                                        app_state.selected_repo = Some(repo.clone());
+                                        app_state.repositories.items.push(repo.clone());
+                                        app_state.cache_issues(repo.full_name, issues);
 
-                        app_state.search_string = String::new();
-                        app_state.hide_search();
+                                        app_state.search_string = String::new();
+                                        app_state.hide_search();
+                                    }
+                                    Err(_) => {
+                                        app_state.show_error(Errors::FetchRequestError.to_string())
+                                    }
+                                }
+                            }
+                        };
                     }
                     KeyCode::Char(c) => {
                         app_state.search_string.push(c);

@@ -26,6 +26,8 @@ pub struct AppState {
     pub input_mode: InputMode,
     /// Whether the repository search window is open or not
     pub show_search: bool,
+    /// Handle the previous error
+    pub error_message: String,
     /// The users current search string
     pub search_string: String,
 }
@@ -42,6 +44,7 @@ impl AppState {
             screen: Screen::Issues,
             input_mode: InputMode::Normal,
             show_search: false,
+            error_message: String::new(),
             search_string: String::new(),
         }
     }
@@ -50,6 +53,7 @@ impl AppState {
         match self.screen {
             Screen::Issues => self.screen = Screen::Repositories,
             Screen::Repositories => self.screen = Screen::Issues,
+            Screen::Error => {}
         }
     }
 
@@ -69,5 +73,17 @@ impl AppState {
     pub fn hide_search(&mut self) {
         self.show_search = false;
         self.input_mode = InputMode::Normal;
+    }
+
+    pub fn show_error(&mut self, error_message: String) {
+        self.input_mode = InputMode::Normal;
+        self.hide_search();
+        self.error_message = error_message;
+        self.screen = Screen::Error;
+    }
+
+    pub fn close_error(&mut self) {
+        self.error_message = String::new();
+        self.screen = Screen::Issues;
     }
 }
