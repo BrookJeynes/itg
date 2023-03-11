@@ -1,5 +1,6 @@
 use tui::widgets::ListState;
 
+#[derive(Clone)]
 pub struct StatefulList<T> {
     pub state: ListState,
     pub items: Vec<T>,
@@ -20,38 +21,57 @@ impl<T> StatefulList<T> {
 
     /// Move the internally selected item forward.
     pub fn next(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i >= self.items.len() - 1 {
-                    i
-                } else {
-                    i + 1
+        if !self.items.is_empty() {
+            let i = match self.state.selected() {
+                Some(i) => {
+                    if i >= self.items.len() - 1 {
+                        i
+                    } else {
+                        i + 1
+                    }
                 }
-            }
-            None => 0,
-        };
+                None => 0,
+            };
 
-        self.state.select(Some(i))
+            self.state.select(Some(i));
+        }
     }
 
     /// Move the internally selected item backwards.
     pub fn previous(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    i
-                } else {
-                    i - 1
+        if !self.items.is_empty() {
+            let i = match self.state.selected() {
+                Some(i) => {
+                    if i == 0 {
+                        i
+                    } else {
+                        i - 1
+                    }
                 }
-            }
-            None => 0,
-        };
+                None => 0,
+            };
 
-        self.state.select(Some(i))
+            self.state.select(Some(i));
+        }
     }
 
-    /// Return the current selected item.
-    pub fn selected(&mut self) -> Option<usize> {
+    /// Return the selected items index.
+    pub fn selected(&self) -> Option<usize> {
+        if self.items.is_empty() {
+            return None;
+        }
+
         self.state.selected()
+    }
+
+    /// Return the selected items value.
+    pub fn selected_value(&self) -> Option<&T> {
+        match self.selected() {
+            Some(index) => match self.items.get(index) {
+                Some(items) => Some(items),
+                None => None,
+            },
+            None => None,
+        }
     }
 }

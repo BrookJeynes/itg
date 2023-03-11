@@ -1,15 +1,16 @@
+pub mod api_requests;
 pub mod controls;
 pub mod models;
 pub mod ui;
 
 use anyhow::Result;
+use api_requests::fetch_repositories;
 use clap::Parser;
 use controls::run_app;
 use indicatif::{ProgressBar, ProgressStyle};
 use models::{
     app_state::AppState, args::Args, config::Config, issue::Issue, menu_items::MenuItems,
 };
-use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 use std::{io, time::Duration};
 
 use crossterm::{
@@ -17,22 +18,6 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use tui::{backend::CrosstermBackend, Terminal};
-
-async fn fetch_issues(client: &reqwest::Client, config: &Config) -> Result<Vec<Issue>> {
-    Ok(client
-        .get("https://api.github.com/issues")
-        .header(
-            AUTHORIZATION,
-            format!("Bearer {}", &config.github_access_token),
-        )
-        .header(ACCEPT, "application/vnd.github+json")
-        .header("X-GitHub-Api-Version", "2022-11-28")
-        .header(USER_AGENT, &config.user_name)
-        .send()
-        .await?
-        .json::<Vec<Issue>>()
-        .await?)
-}
 
 fn create_spinner(message: String) -> ProgressBar {
     let spinner = ProgressBar::new_spinner();
@@ -49,7 +34,6 @@ fn create_spinner(message: String) -> ProgressBar {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let client = reqwest::Client::new();
     let args = Args::parse();
 
     let config = Config::initialise_config(Config {
@@ -66,14 +50,15 @@ async fn main() -> Result<()> {
         std::process::exit(1);
     }
 
-    let spinner = create_spinner(String::from("Fetching issues.."));
-    let issues = fetch_issues(&client, &config).await?;
+    let spinner = create_spinner(String::from("Fetching data.."));
+    let repositories = fetch_repositories(&config).await?;
+
     spinner.finish();
 
     let mut terminal = init_terminal()?;
 
-    let app_state = AppState::new(issues);
-    let res = run_app(&mut terminal, app_state);
+    let app_state = AppState::new(config, repositories);
+    let res = run_app(&mut terminal, app_state).await;
 
     reset_terminal()?;
 

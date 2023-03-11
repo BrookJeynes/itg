@@ -4,14 +4,30 @@ use tui::{
     layout::{Alignment, Constraint, Corner, Layout},
     style::{Color, Style},
     text::{Span, Spans, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
 };
 
-use crate::{models::stateful_list::StatefulList, AppState, MenuItems};
+use crate::{
+    models::{screen::Screen, stateful_list::StatefulList},
+    AppState, MenuItems,
+};
 
 pub fn ui<B: Backend>(f: &mut Frame<B>, app_state: &mut AppState) {
     let size = f.size();
+
+    let repo_name = match &app_state.selected_repo {
+        Some(repo) => repo.full_name.clone(),
+        None => String::new(),
+    };
+
+    // A helper closure to create blocks
+    let create_block = |title: &str| {
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title.to_string())
+            .border_type(BorderType::Rounded)
+    };
 
     // The main canvas
     let main = Layout::default()
@@ -29,20 +45,57 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app_state: &mut AppState) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(main[1]);
 
+    // Canvas split between showing issues and repos
+    let issues_repos = Layout::default()
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(inner[0]);
+
     f.render_widget(render_menu_bar(&app_state), main[0]);
+
+    if app_state.get_issues().items.is_empty() {
+        f.render_widget(
+            Paragraph::new("No issues found..").block(
+                create_block(format!("Issues - {}", repo_name).as_str())
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(if app_state.screen == Screen::Issues {
+                        Color::Yellow
+                    } else {
+                        Color::White
+                    })),
+            ),
+            issues_repos[0],
+        )
+    } else {
+        f.render_stateful_widget(
+            render_list(&app_state.get_issues()).block(
+                create_block(format!("Issues - {}", repo_name).as_str()).border_style(
+                    Style::default().fg(if app_state.screen == Screen::Issues {
+                        Color::Yellow
+                    } else {
+                        Color::White
+                    }),
+                ),
+            ),
+            issues_repos[0],
+            &mut app_state.get_issues().state,
+        );
+    }
+
     f.render_stateful_widget(
-        render_list(&app_state.issues),
-        inner[0],
-        &mut app_state.issues.state,
+        render_list(&app_state.repositories).block(create_block("Repositories").border_style(
+            Style::default().fg(if app_state.screen == Screen::Repositories {
+                Color::Yellow
+            } else {
+                Color::White
+            }),
+        )),
+        issues_repos[1],
+        &mut app_state.repositories.state,
     );
     f.render_widget(
-        render_markdown(if let Some(index) = app_state.issues.selected() {
-            match app_state.issues.items.get(index) {
-                Some(issue) => issue.body.as_str(),
-                None => "",
-            }
-        } else {
-            ""
+        render_markdown(match app_state.get_issues().selected_value() {
+            Some(issue) => issue.body.as_str(),
+            None => "",
         }),
         inner[1],
     );
@@ -104,7 +157,6 @@ fn render_list<'a, T: std::fmt::Display>(items: &StatefulList<T>) -> List<'a> {
     List::new(items)
         .highlight_style(Style::default().fg(Color::LightGreen))
         .start_corner(Corner::TopLeft)
-        .block(Block::default().borders(Borders::ALL))
 }
 
 fn render_markdown<'a>(content: &'a str) -> Paragraph<'a> {
@@ -120,11 +172,16 @@ fn render_markdown<'a>(content: &'a str) -> Paragraph<'a> {
     Paragraph::new(output)
         .wrap(Wrap { trim: false })
         .alignment(Alignment::Left)
-        .block(Block::default().borders(Borders::ALL))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Issue preview")
+                .border_type(BorderType::Rounded),
+        )
 }
 
 fn render_controls<'a>() -> Paragraph<'a> {
-    Paragraph::new("q: quit, Up / k && Down / j: scroll list, Enter: open issue")
+    Paragraph::new("q: quit, Up / k && Down / j: scroll list, Enter: open issue/repository")
         .wrap(Wrap { trim: false })
         .alignment(Alignment::Left)
 }
@@ -152,7 +209,9 @@ fn render_menu_bar<'a>(app_state: &AppState) -> Paragraph<'a> {
             .collect::<Vec<Span>>(),
     )];
 
-    Paragraph::new(items)
-        .alignment(Alignment::Left)
-        .block(Block::default().borders(Borders::ALL))
+    Paragraph::new(items).alignment(Alignment::Left).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded),
+    )
 }

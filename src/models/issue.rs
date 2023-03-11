@@ -1,7 +1,7 @@
 use core::fmt;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Issue {
     pub html_url: String,
     pub number: usize,
