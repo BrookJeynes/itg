@@ -1,10 +1,10 @@
 use ansi_to_tui::IntoText;
 use tui::{
     backend::Backend,
-    layout::{Alignment, Constraint, Corner, Layout},
+    layout::{Alignment, Constraint, Corner, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans, Text},
-    widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Wrap},
     Frame,
 };
 
@@ -52,22 +52,9 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app_state: &mut AppState) {
 
     f.render_widget(render_menu_bar(&app_state), main[0]);
 
-    if app_state.get_issues().items.is_empty() {
+    if app_state.issues.items.is_empty() {
         f.render_widget(
             Paragraph::new("No issues found..").block(
-                create_block(format!("Issues - {}", repo_name).as_str())
-                    .border_type(BorderType::Rounded)
-                    .border_style(Style::default().fg(if app_state.screen == Screen::Issues {
-                        Color::Yellow
-                    } else {
-                        Color::White
-                    })),
-            ),
-            issues_repos[0],
-        )
-    } else {
-        f.render_stateful_widget(
-            render_list(&app_state.get_issues()).block(
                 create_block(format!("Issues - {}", repo_name).as_str()).border_style(
                     Style::default().fg(if app_state.screen == Screen::Issues {
                         Color::Yellow
@@ -77,7 +64,20 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app_state: &mut AppState) {
                 ),
             ),
             issues_repos[0],
-            &mut app_state.get_issues().state,
+        )
+    } else {
+        f.render_stateful_widget(
+            render_list(&app_state.issues).block(
+                create_block(format!("Issues - {}", repo_name).as_str()).border_style(
+                    Style::default().fg(if app_state.screen == Screen::Issues {
+                        Color::Yellow
+                    } else {
+                        Color::White
+                    }),
+                ),
+            ),
+            issues_repos[0],
+            &mut app_state.issues.state,
         );
     }
 
@@ -93,13 +93,30 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app_state: &mut AppState) {
         &mut app_state.repositories.state,
     );
     f.render_widget(
-        render_markdown(match app_state.get_issues().selected_value() {
+        render_markdown(match app_state.issues.selected_value() {
             Some(issue) => issue.body.as_str(),
             None => "",
         }),
         inner[1],
     );
     f.render_widget(render_controls(), main[2]);
+
+    if app_state.show_search {
+        let area = render_centered_rect(70, 7, size);
+        f.render_widget(Clear, area); //this clears out the background
+        f.render_widget(render_search_box(app_state.search_string.as_str()), area)
+    }
+}
+
+fn render_search_box<'a>(search_text: &'a str) -> Paragraph<'a> {
+    Paragraph::new(search_text)
+        .alignment(Alignment::Left)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .title("Search - {user_name}/{repo_name}"),
+        )
 }
 
 fn parse_markdown_headers(content: &str) -> String {
@@ -181,7 +198,7 @@ fn render_markdown<'a>(content: &'a str) -> Paragraph<'a> {
 }
 
 fn render_controls<'a>() -> Paragraph<'a> {
-    Paragraph::new("q: quit, Up / k && Down / j: scroll list, Enter: open issue/repository")
+    Paragraph::new("q: quit, Up / k && Down / j: scroll list, Enter: open/select issue/repository, Tab: switch focus, S: search repo")
         .wrap(Wrap { trim: false })
         .alignment(Alignment::Left)
 }
@@ -214,4 +231,31 @@ fn render_menu_bar<'a>(app_state: &AppState) -> Paragraph<'a> {
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded),
     )
+}
+
+/// helper function to create a centered rect using up certain percentage of the available rect `r`
+fn render_centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Percentage((100 - percent_y) / 2),
+                Constraint::Percentage(percent_y),
+                Constraint::Percentage((100 - percent_y) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Percentage((100 - percent_x) / 2),
+                Constraint::Percentage(percent_x),
+                Constraint::Percentage((100 - percent_x) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(popup_layout[1])[1]
 }
