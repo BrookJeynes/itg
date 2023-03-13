@@ -10,6 +10,7 @@ use controls::run_app;
 use indicatif::{ProgressBar, ProgressStyle};
 use models::{
     app_state::AppState, args::Args, config::Config, issue::Issue, menu_items::MenuItems,
+    repository::Repository,
 };
 use std::{io, time::Duration};
 
@@ -52,6 +53,11 @@ async fn main() -> Result<()> {
 
     let spinner = create_spinner(String::from("Fetching data.."));
     let repositories = fetch_repositories(&config).await?;
+    let repositories = repositories
+        .iter()
+        .cloned()
+        .filter(|repo| repo.open_issues_count > 0)
+        .collect::<Vec<Repository>>();
 
     spinner.finish();
 

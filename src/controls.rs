@@ -28,7 +28,6 @@ pub async fn run_app<B: Backend>(
                     match key.code {
                         // Menu switcher
                         KeyCode::Char('I') => app_state.current_menu = MenuItems::Issues,
-                        KeyCode::Char('P') => app_state.current_menu = MenuItems::PullRequests,
 
                         // Focus switcher
                         KeyCode::Tab => app_state.change_focus(),
@@ -119,6 +118,7 @@ pub async fn run_app<B: Backend>(
                         let repo = Repository {
                             full_name: String::from(search),
                             name: String::from(repo),
+                            open_issues_count: 0,
                         };
 
                         // Check cache for issues
@@ -135,7 +135,7 @@ pub async fn run_app<B: Backend>(
                                     Ok(issues) => {
                                         app_state.issues = StatefulList::with_items(issues.clone());
                                         app_state.selected_repo = Some(repo.clone());
-                                        app_state.repositories.items.push(repo.clone());
+                                        app_state.repositories.items.insert(0, repo.clone());
                                         app_state.cache_issues(repo.full_name, issues);
 
                                         app_state.search_string = String::new();
