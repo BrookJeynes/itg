@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::Issue;
 
 use super::{
-    config::Config, input_mode::InputMode, menu_items::MenuItems, repository::Repository,
-    screen::Screen, stateful_list::StatefulList,
+    config::Config, input_mode::InputMode, menu_items::MenuItems, popup::Popup,
+    repository::Repository, screen::Screen, stateful_list::StatefulList,
 };
 
 pub struct AppState {
@@ -24,12 +24,8 @@ pub struct AppState {
     pub screen: Screen,
     /// The users current input mode
     pub input_mode: InputMode,
-    /// Whether the repository search window is open or not
-    pub show_search: bool,
-    /// Handle the previous error
-    pub error_message: String,
-    /// The users current search string
-    pub search_string: String,
+    /// UI Popup
+    pub popup: Popup,
 }
 
 impl AppState {
@@ -43,9 +39,7 @@ impl AppState {
             selected_repo: None,
             screen: Screen::Issues,
             input_mode: InputMode::Normal,
-            show_search: false,
-            error_message: String::new(),
-            search_string: String::new(),
+            popup: Popup::default(),
         }
     }
 
@@ -64,26 +58,29 @@ impl AppState {
     pub fn select_repo(&mut self, repository: Repository) {
         self.selected_repo = Some(repository)
     }
+}
 
+// Popup related functions
+impl AppState {
     pub fn show_search(&mut self) {
-        self.show_search = true;
+        self.popup
+            .show_popup(String::from("Search Issue - {user}/{repo}"), String::new());
         self.input_mode = InputMode::Editing;
     }
 
     pub fn hide_search(&mut self) {
-        self.show_search = false;
+        self.popup.close_popup();
         self.input_mode = InputMode::Normal;
     }
 
     pub fn show_error(&mut self, error_message: String) {
-        self.input_mode = InputMode::Normal;
-        self.hide_search();
-        self.error_message = error_message;
+        self.popup.show_popup(String::from("Error"), error_message);
         self.screen = Screen::Error;
+        self.input_mode = InputMode::Normal;
     }
 
     pub fn close_error(&mut self) {
-        self.error_message = String::new();
+        self.popup.close_popup();
         self.screen = Screen::Issues;
     }
 }

@@ -5,7 +5,7 @@ use termimad::crossterm::style::Stylize;
 use tui::{backend::Backend, Terminal};
 
 use crate::{
-    api_requests::fetch_issues_repo,
+    api_requests::{fetch_issues_repo, fetch_issues_self},
     models::{
         errors::Errors, input_mode::InputMode, repository::Repository, screen::Screen,
         stateful_list::StatefulList,
@@ -43,6 +43,20 @@ pub async fn run_app<B: Backend>(
                             Screen::Repositories => app_state.repositories.next(),
                             Screen::Error => {}
                         },
+
+                        // Fetch all issues assigned to you
+                        KeyCode::Char('M') => {
+                            // This blocks input
+                            match fetch_issues_self(&app_state.config).await {
+                                Ok(issues) => {
+                                    app_state.issues = StatefulList::with_items(issues.clone());
+                                }
+                                Err(_) => {
+                                    app_state.show_error(Errors::FetchRequestError.to_string())
+                                }
+                            }
+                        }
+
                         KeyCode::Enter => match app_state.screen {
                             Screen::Issues => {
                                 if let Some(issue) = app_state.issues.selected_value() {
@@ -108,9 +122,10 @@ pub async fn run_app<B: Backend>(
                 }
                 InputMode::Editing => match key.code {
                     KeyCode::Enter => {
-                        let search = app_state.search_string.trim();
+                        let search = app_state.popup.message.trim();
                         let (_, repo) = app_state
-                            .search_string
+                            .popup
+                            .message
                             .split("/")
                             .next_tuple()
                             .unwrap_or(("", ""));
@@ -125,7 +140,6 @@ pub async fn run_app<B: Backend>(
                         match app_state.issue_cache.get(&repo.full_name) {
                             Some(issues) => {
                                 app_state.issues = StatefulList::with_items(issues.clone());
-                                app_state.search_string = String::new();
                                 app_state.hide_search();
                             }
                             // Fetch issues for repo and add to cache
@@ -138,7 +152,6 @@ pub async fn run_app<B: Backend>(
                                         app_state.repositories.items.insert(0, repo.clone());
                                         app_state.cache_issues(repo.full_name, issues);
 
-                                        app_state.search_string = String::new();
                                         app_state.hide_search();
                                     }
                                     Err(_) => {
@@ -149,10 +162,10 @@ pub async fn run_app<B: Backend>(
                         };
                     }
                     KeyCode::Char(c) => {
-                        app_state.search_string.push(c);
+                        app_state.popup.message.push(c);
                     }
                     KeyCode::Backspace => {
-                        app_state.search_string.pop();
+                        app_state.popup.message.pop();
                     }
                     KeyCode::Esc => app_state.hide_search(),
 

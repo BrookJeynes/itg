@@ -1,10 +1,11 @@
 pub mod app_state;
 pub mod args;
 pub mod config;
+pub mod errors;
 pub mod input_mode;
 pub mod issue;
 pub mod menu_items;
+pub mod popup;
 pub mod repository;
-pub mod errors;
 pub mod screen;
 pub mod stateful_list;

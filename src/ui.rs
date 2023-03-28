@@ -9,7 +9,7 @@ use tui::{
 };
 
 use crate::{
-    models::{screen::Screen, stateful_list::StatefulList},
+    models::{popup::Popup, screen::Screen, stateful_list::StatefulList},
     AppState, MenuItems,
 };
 
@@ -101,38 +101,30 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app_state: &mut AppState) {
     );
     f.render_widget(render_controls(), main[2]);
 
-    if app_state.show_search {
-        let area = render_centered_rect(70, 7, size);
-        f.render_widget(Clear, area); //this clears out the background
-        f.render_widget(render_search_box(app_state.search_string.as_str()), area)
-    }
-
-    if app_state.screen == Screen::Error {
+    if app_state.popup.show_popup {
         let area = render_centered_rect(70, 15, size);
         f.render_widget(Clear, area); //this clears out the background
-        f.render_widget(render_error_box(app_state.error_message.as_str()), area)
+        f.render_widget(render_popup(&app_state.popup), area)
     }
 }
 
 fn render_error_box<'a>(error_text: &'a str) -> Paragraph<'a> {
-    Paragraph::new(error_text)
-        .alignment(Alignment::Left)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .title("Error - Press Enter to continue"),
-        )
+    Paragraph::new(error_text).alignment(Alignment::Left).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .title("Error - Press Enter to continue"),
+    )
 }
 
-fn render_search_box<'a>(search_text: &'a str) -> Paragraph<'a> {
-    Paragraph::new(search_text)
+fn render_popup<'a>(popup: &Popup) -> Paragraph<'a> {
+    Paragraph::new(popup.message.clone())
         .alignment(Alignment::Left)
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .title("Search - {user_name}/{repo_name}"),
+                .title(popup.title.clone()),
         )
 }
 
@@ -215,7 +207,7 @@ fn render_markdown<'a>(content: &'a str) -> Paragraph<'a> {
 }
 
 fn render_controls<'a>() -> Paragraph<'a> {
-    Paragraph::new("q: quit, Up / k && Down / j: scroll list, Enter: open/select issue/repository, Tab: switch focus, S: search repo")
+    Paragraph::new("q: quit, Up / k && Down / j: scroll list, Enter: open/select issue/repository, Tab: switch focus, S: search repo, M: all user issues")
         .wrap(Wrap { trim: false })
         .alignment(Alignment::Left)
 }
